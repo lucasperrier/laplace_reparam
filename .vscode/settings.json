@@ -1,0 +1,6 @@
+{
+    "powerquery.client.additionalSymbolsDirectories": [
+        "/home/lucas-perrier/Documents/projects/bayes_laplace/.vscode/excel-pq-symbols",
+        "/home/lucas-perrier/Documents/projects/laplace_reparam/.vscode/excel-pq-symbols"
+    ]
+}
