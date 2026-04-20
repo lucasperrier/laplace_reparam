@@ -31,10 +31,10 @@ compare the sampled and linearized Laplace predictives.
 
 ![](figures/01_sampled_vs_linearized.png)
 
-Sampled Laplace (left) has uncertainty everywhere, including on
-training data — the "underfitting" signature. Linearized Laplace
-(right) tightly tracks MAP on the training data and expands in the
-gap and extrapolation tails.
+Sampled Laplace (left) has high predictive variance everywhere,
+including on the training data. Linearized Laplace (right) tracks
+MAP on the training data and widens in the gap and the extrapolation
+tails.
 
 ### Experiment 2 — Rank(GGN) vs training fit
 `python -m experiments.exp2_rank` → `figures/02_rank_vs_underfitting.png`
@@ -45,22 +45,14 @@ linearized-Laplace mean, and the sampled-Laplace mean.
 
 ![](figures/02_rank_vs_underfitting.png)
 
-MAP and linearized Laplace sit together at ≈0.98 as soon as there is
+MAP and linearized Laplace sit together at ≈0.98 once there is
 enough data. Sampled Laplace stays negative (worse than the
-constant-mean baseline) across the entire sweep.
+constant-mean baseline) across the entire sweep, including at
+`N = 1280 ≫ D = 321`, where the paper's dimensional rank bound
+`dim ker(G) ≥ D − NO` is no longer active. The repo does not
+identify the mechanism behind this residual underfitting.
 
-An observation that extends the paper's analysis: in tanh MLPs,
-sampled Laplace does not catch up to MAP even at `N = 1280 ≫ rank(G)`.
-The kernel carries *structural* components from neuron permutation
-and tanh sign-flip symmetries — invariances of the architecture
-itself, not of the data — which persist regardless of dataset size.
-The paper's rank-deficiency story (`dim ker(G) ≥ D − NO`) captures
-the dimensional contribution but not the architectural one. An open
-question is whether the paper's proposed Laplace diffusion, which
-operates on the non-kernel manifold `P_w`, handles these structural
-symmetries automatically or only the dimensional kernel.
-
-### Experiment 3 — Kernel vs image decomposition (payoff figure)
+### Experiment 3 — Kernel vs image decomposition
 `python -m experiments.exp3_decomposition` → `figures/03_kernel_image_decomposition.png`
 
 Eigendecompose the GGN, project posterior samples onto its image and
@@ -69,20 +61,19 @@ both sampled and linearized Laplace.
 
 ![](figures/03_kernel_image_decomposition.png)
 
-Bottom-right is the key panel: the linearized predictive collapses to
-a thin band around MAP when samples live entirely in `ker(GGN)`, as
-predicted by `f_lin(w, x*) = f(w_MAP, x*) + J(x*)(w − w_MAP)` with
+Bottom-right panel: the linearized predictive collapses to a thin
+band around MAP when samples live entirely in `ker(GGN)`, consistent
+with `f_lin(w, x*) = f(w_MAP, x*) + J(x*)(w − w_MAP)` and
 `J(x*)v = 0` for `v ∈ ker(GGN)`. The top-right panel — the same
-projection, but evaluated through the *nonlinear* network — has the
-opposite behavior: massive uncertainty. Numerically, mean predictive
-variance from the kernel subspace is `1.578·10²` (sampled) vs
-`3.677·10⁻²` (linearized), a ratio of `4.3·10³`.
+kernel projection evaluated through the *nonlinear* network — shows
+large uncertainty. Mean predictive variance from the kernel subspace
+in this run: `1.578·10²` (sampled) vs `3.677·10⁻²` (linearized).
 
 ## Layout
 
 ```
 src/
-  model.py       MLP, toy data, MAP trainer  (given)
+  model.py       MLP, toy data, MAP trainer
   laplace.py     GGN, posterior cov, sampling, predictives
 experiments/
   exp1_basic.py
@@ -97,38 +88,15 @@ Sum-scale Laplace with Gaussian likelihood (σ=1) and Gaussian prior
 `N(0, 1/α I)`. Posterior `N(w_MAP, (G + α I)^{-1})` with
 `G = J.T @ J` and `J ∈ R^{N×D}` the stacked per-sample Jacobian of
 the scalar-output network. Default `α = 0.1`, hidden sizes `(16, 16)`,
-`D = 321` parameters.
+`D = 321` parameters. `α` is held fixed across all experiments.
 
-## Not implemented
+## Scope
 
-The paper's Riemannian-geometry-based Laplace diffusion (their
-proposed fix) is out of scope — this repo reproduces their diagnostic
-experiments only.
-
-## Discussion
-
-The reproduction confirms the paper's core mechanism: posterior mass
-in `ker(GGN)` produces functional variation in the nonlinear
-predictive but is absorbed by `f_lin`'s construction. Experiment 3
-is the cleanest evidence — the kernel-projected sampled predictive
-has variance orders of magnitude larger than its linearized
-counterpart, which collapses to a thin band around MAP by
-construction.
-
-Experiment 2 reveals a subtlety the paper does not address:
-architectural symmetries (permutation invariance of hidden units,
-tanh sign-flip) contribute structural kernel components that are
-independent of dataset size. Rank deficiency from overparametrization
-(`dim ker ≥ D − NO`) is necessary but not sufficient to explain
-persistent underfitting in symmetric architectures.
-
-This connects to a natural extension: does the Riemannian diffusion
-on `(P_w, GGN⁺)` proposed in §5 of the paper account for structural
-symmetries, or does it only quotient out the dimensional kernel?
-The quotient space `P = R^D / ∼` is defined by training-data
-invariance, which should in principle include both — but the `GGN⁺`
-pseudo-inverse that drives the diffusion is computed from data
-Jacobians and may not "see" global architectural symmetries. An
-experimental check: compare Laplace diffusion samples on a tanh MLP
-vs. a sign-flip-broken variant (e.g. mixed tanh/ReLU).
-# laplace_reparam
+This repo reproduces the diagnostic experiments only. Not
+implemented:
+- The paper's Riemannian Laplace diffusion (the proposed fix).
+- Any sweep over the prior precision `α`.
+- Any analysis attributing the residual underfitting in Experiment 2
+  to a specific mechanism (e.g. architectural symmetries). Such an
+  attribution would require additional experiments not included
+  here.
